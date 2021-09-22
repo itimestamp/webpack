@@ -2,6 +2,10 @@ const { resolve } = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 const OptimizeCssAssetsWebpackPlugin = require('optimize-css-assets-webpack-plugin');
+const WorkboxWebpackPlugin = require('workbox-webpack-plugin');
+const webpack = require('webpack');
+const AddAssetHtmlWebpackPlugin = require('add-asset-html-webpack-plugin');
+
 
 // 设置nodejs环境变量
 // process.env.NODE_ENV = 'development';
@@ -58,66 +62,6 @@ module.exports = {
   },
   module: {
     rules: [
-      // {
-      //     test: /\.css$/,
-      //     use: [
-      //         // use数组中loader执行顺序：从右到左，从下到上 依次执行
-      //         // 创建style标签，将js中的样式资源插入进行，添加到head中生效
-      //         'style-loader',
-      //         // 将css文件变成commonjs模块加载js中，里面内容是样式字符串
-      //         'css-loader'
-      //     ],
-      //     // outputPath: 'css',
-      // },
-      // {
-      //     test: /\.less$/,
-      //     use: [
-      //         'style-loader',
-      //         'css-loader',
-      //         // 将less文件编译成css文件
-      //         // 需要下载 less-loader和less 这两个包
-      //         'less-loader'
-      //     ]
-      // },
-      // 从js文件中提取css文件
-      {
-        test: /\.css$/,
-        use: [...commonCssLoaders],
-      },
-      {
-        test: /\.less$/,
-        use: [...commonCssLoaders, 'less-loader'],
-      },
-
-      //webpack 5 内置处理了图片的loader了
-      {
-        // 处理不了html中的图片资源
-        test: /\.(jpg|png|gif)$/,
-        // 使用一个loader
-        // 下载 url-loader file-loader
-        loader: 'url-loader',
-        options: {
-          // 图片大小小于8kb，就会被base64处理
-          // 优点: 减少请求数量（减轻服务器压力）
-          // 缺点：图片体积会更大（文件请求速度更慢）
-          limit: 8 * 1024,
-          // 问题：因为url-loader默认使用es6模块化解析，而html-loader引入图片是commonjs
-          // 解析时会出问题：[object Module]
-          // 解决：关闭url-loader的es6模块化，使用commonjs解析
-          esModule: false,
-          // 给图片进行重命名
-          // [hash:10]取图片的hash的前10位
-          // [ext]取文件原来扩展名
-          name: '[hash:10].[ext]',
-        },
-        type: 'javascript/auto',
-      },
-      // 打包其他资源(除了html/js/css资源以外的资源)
-      {
-        test: /\.html$/,
-        // 处理html文件的img图片（负责引入img，从而能被url-loader进行处理）
-        loader: 'html-loader',
-      },
       /*
             需要下载4个包 eslint-loader  eslint  eslint-config-airbnb-base  eslint-plugin-import
             语法检查： eslint-loader  eslint
@@ -132,14 +76,87 @@ module.exports = {
       {
         test: /\.js$/,
         exclude: /node_modules/,
-        enforce: true,
+        // enforce: true,
         loader: 'eslint-loader',
         options: {
           // 自动修复eslint的错误
           fix: true,
         },
       },
-      /*
+      {
+        oneOf: [
+          // {
+          //     test: /\.css$/,
+          //     use: [
+          //         // use数组中loader执行顺序：从右到左，从下到上 依次执行
+          //         // 创建style标签，将js中的样式资源插入进行，添加到head中生效
+          //         'style-loader',
+          //         // 将css文件变成commonjs模块加载js中，里面内容是样式字符串
+          //         'css-loader'
+          //     ],
+          //     // outputPath: 'css',
+          // },
+          // {
+          //     test: /\.less$/,
+          //     use: [
+          //         'style-loader',
+          //         'css-loader',
+          //         // 将less文件编译成css文件
+          //         // 需要下载 less-loader和less 这两个包
+          //         'less-loader'
+          //     ]
+          // },
+          // 从js文件中提取css文件
+          {
+            test: /\.css$/,
+            use: [...commonCssLoaders],
+          },
+          {
+            test: /\.less$/,
+            use: [...commonCssLoaders, 'less-loader'],
+          },
+
+          //webpack 5 内置处理了图片的loader了
+          {
+            // 处理不了html中的图片资源
+            test: /\.(jpg|png|gif)$/,
+            // 使用一个loader
+            // 下载 url-loader file-loader
+            loader: 'url-loader',
+            options: {
+              // 图片大小小于8kb，就会被base64处理
+              // 优点: 减少请求数量（减轻服务器压力）
+              // 缺点：图片体积会更大（文件请求速度更慢）
+              limit: 8 * 1024,
+              // 问题：因为url-loader默认使用es6模块化解析，而html-loader引入图片是commonjs
+              // 解析时会出问题：[object Module]
+              // 解决：关闭url-loader的es6模块化，使用commonjs解析
+              esModule: false,
+              // 给图片进行重命名
+              // [hash:10]取图片的hash的前10位
+              // [ext]取文件原来扩展名
+              name: '[hash:10].[ext]',
+            },
+            type: 'javascript/auto',
+          },
+          // 打包其他资源(除了html/js/css资源以外的资源)
+          {
+            test: /\.html$/,
+            // 处理html文件的img图片（负责引入img，从而能被url-loader进行处理）
+            loader: 'html-loader',
+          },
+          /* 
+                开启多进程打包。 
+                进程启动大概为600ms，进程通信也有开销。
+                只有工作消耗时间比较长，才需要多进程打包
+              */
+                // {
+                //   loader: 'thread-loader',
+                //   // options: {
+                //   //   workers: 2 // 进程2个
+                //   // }
+                // },
+          /*
             js兼容性处理：babel-loader @babel/core 
             1. 基本js兼容性处理 --> @babel/preset-env
                 问题：只能转换基本语法，如promise高级语法不能转换
@@ -147,41 +164,46 @@ module.exports = {
                 问题：我只要解决部分兼容性问题，但是将所有兼容性代码全部引入，体积太大了~
             3. 需要做兼容性处理的就做：按需加载  --> core-js
             */
-      {
-        test: /\.js$/,
-        exclude: /node_modules/,
-        loader: 'babel-loader',
-        options: {
-          // 预设：指示babel做怎么样的兼容性处理
-          presets: [
-            [
-              '@babel/preset-env',
-              {
-                // 按需加载
-                useBuiltIns: 'usage',
-                // 指定core-js版本
-                corejs: {
-                  version: 3,
-                },
-                // 指定兼容性做到哪个版本浏览器
-                targets: {
-                  chrome: '60',
-                  firefox: '60',
-                  ie: '9',
-                  safari: '10',
-                  edge: '17',
-                },
-              },
-            ],
-          ],
-        },
-      },
-      {
-        exclude: /\.(css|js|html|less|jpg|png|gif)$/,
-        loader: 'file-loader',
-        options: {
-          name: '[hash:10].[ext]',
-        },
+          {
+            test: /\.js$/,
+            exclude: /node_modules/,
+            loader: 'babel-loader',
+            options: {
+              // 预设：指示babel做怎么样的兼容性处理
+              presets: [
+                [
+                  '@babel/preset-env',
+                  {
+                    // 按需加载
+                    useBuiltIns: 'usage',
+                    // 指定core-js版本
+                    corejs: {
+                      version: 3,
+                    },
+                    // 指定兼容性做到哪个版本浏览器
+                    targets: {
+                      chrome: '60',
+                      firefox: '60',
+                      ie: '9',
+                      safari: '10',
+                      edge: '17',
+                    },
+                    // 开启babel缓存
+                    // 第二次构建时，会读取之前的缓存
+                    // cacheDirectory: true
+                  },
+                ],
+              ],
+            },
+          },
+          {
+            exclude: /\.(css|js|html|less|jpg|png|gif)$/,
+            loader: 'file-loader',
+            options: {
+              name: '[hash:10].[ext]',
+            },
+          },
+        ],
       },
     ],
   },
@@ -206,21 +228,49 @@ module.exports = {
     }),
     // 压缩css
     new OptimizeCssAssetsWebpackPlugin(),
+    new WorkboxWebpackPlugin.GenerateSW({
+      /*
+        1. 帮助serviceworker快速启动
+        2. 删除旧的 serviceworker
+
+        生成一个 serviceworker 配置文件~
+      */
+      clientsClaim: true,
+      skipWaiting: true
+    }),
+    // 告诉webpack哪些库不参与打包，同时使用时的名称也得变~
+    new webpack.DllReferencePlugin({
+      manifest: resolve(__dirname, 'dll/manifest.json')
+    }),
+    // 将某个文件打包输出去，并在html中自动引入该资源
+    new AddAssetHtmlWebpackPlugin({
+      filepath: resolve(__dirname, 'dll/jquery.js')
+    })
   ],
+  // 代码分割
+  // optimization: {
+  //   splitChunks: {
+  //     chunks: 'all'
+  //   }
+  // },
   // mode: "development",
   mode: 'production',
 
-  // // 开发服务器 devServer：用来自动化（自动编译，自动打开浏览器，自动刷新浏览器~~）
-  // // 特点：只会在内存中编译打包，不会有任何输出
-  // // 启动devServer指令为：npx webpack-dev-server
+  // 开发服务器 devServer：用来自动化（自动编译，自动打开浏览器，自动刷新浏览器~~）
+  // 特点：只会在内存中编译打包，不会有任何输出
+  // 启动devServer指令为：npx webpack-dev-server
   // devServer: {
-  //     // 项目构建后路径
-  //     static: './',
-  //     // 启动gzip压缩
-  //     compress: true,
-  //     // 端口号
-  //     port: 5000,
-  //     // 自动打开浏览器
-  //     open: true,
-  // }
+  //   // 项目构建后路径
+  //   contentBase: resolve(__dirname, 'build'),
+  //   // 启动gzip压缩
+  //   compress: true,
+  //   // 端口号
+  //   port: 5000,
+  //   // 自动打开浏览器
+  //   open: true,
+  //   // 开启HMR功能
+  //   // 当修改了webpack配置，新配置要想生效，必须重新webpack服务
+  //   hot: true,
+  // },
+  devtool: 'eval-source-map',
 };
